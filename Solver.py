@@ -55,11 +55,9 @@ class SudokuSolver:
         return (self.IsRowAvailable(row,val) and self.IsColAvailable(col,val) and self.isSquareAvailavle(row,col,val))
 
     def RecursiveSolve(self,row,col,val):
-        self.PrintBoard(self.board,row,col)
 
-        if(row ==8 and col ==8):
+        if(row > 8 ):
             return True
-
         nextRow= row + (int)((col+1)/9)
         nextCol= (col+1)%9
 
@@ -70,25 +68,23 @@ class SudokuSolver:
         if(val==9):
             if(not self.IsAvailable(row,col,9)):
                 self.board[row][col] = 0
-                self.PrintBoard(self.board,row,col)
                 return False
             else:
                 self.board[row][col] = 9
-                self.PrintBoard(self.board,row,col)
 
         else:
             f=0 
             for i in range(val,10):
                 if(self.IsAvailable(row,col,i)):
                     self.board[row][col] = i
-                    self.PrintBoard(self.board,row,col)
                     f=1
                     break
             if(f==0):
                 val =0
                 self.board[row][col]=val
                 return False
-
+        if(row==8 and col ==8):
+            return True
         if(self.RecursiveSolve(nextRow,nextCol,1)):
             return True
     

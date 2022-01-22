@@ -2,7 +2,7 @@ from ExampleBoards import Boards
 from Solver import SudokuSolver
 
 def GetBoard():
-    return Boards[0]
+    return Boards[2]
 
 def PrintBoard(board):
     print("\n @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ \n")
