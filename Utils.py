@@ -25,3 +25,14 @@ def sort_list(original_list):
 
 def remove_last_row_and_column(list_2d):
     return [row[:-1] for row in list_2d[:-1]]
+
+def order_points(pts):
+    pts = np.array(pts)
+    rect = np.zeros((4, 2), dtype = "float32")
+    s = pts.sum(axis = 1)
+    rect[0] = pts[np.argmin(s)]
+    rect[2] = pts[np.argmax(s)]
+    diff = np.diff(pts, axis = 1)
+    rect[1] = pts[np.argmin(diff)]
+    rect[3] = pts[np.argmax(diff)]
+    return rect
