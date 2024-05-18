@@ -2,28 +2,7 @@ class SudokuSolver:
     def __init__(self,board):
         self.board=board
         self.constantMap=[]
-        self.InitConstantMap()
-    
-
-
-    def PrintBoard(self,board,row=-1,col=-1):
-        print("\n @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ \n")
-        for i,row in enumerate(board):
-            line = ""
-            if(i!=0 and i%3==0):
-                print("--------------------------------")
-            for j,col in enumerate(row):
-                if(i==row and j == col):
-                    line = line + " $ "
-                elif(board[i][j] == 0):
-                    line = line + " _ "
-                else:
-                    line = line + " " + str(board[i][j]) + " "
-                if(j!=8 and (j+1)%3==0):
-                    line = line + " | "
-            print(line)
-                
-
+        self.InitConstantMap()          
 
     def InitConstantMap(self):
         for i,row in enumerate(self.board):
@@ -64,14 +43,6 @@ class SudokuSolver:
         if(self.constantMap[row][col]):
             return self.RecursiveSolve(nextRow,nextCol,val)
 
-        
-        if(val==9):
-            if(not self.IsAvailable(row,col,9)):
-                self.board[row][col] = 0
-                return False
-            else:
-                self.board[row][col] = 9
-
         else:
             f=0 
             for i in range(val,10):
@@ -92,7 +63,6 @@ class SudokuSolver:
         if(val>9):
             val = 0
             self.board[row][col] = val
-            self.PrintBoard(self.board,row,col)
             return False
         else:
             return self.RecursiveSolve(row,col,val)
