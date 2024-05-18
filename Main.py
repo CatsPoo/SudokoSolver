@@ -1,5 +1,6 @@
 from ExampleBoards import Boards
 from Solver import SudokuSolver
+from Scanner import SudokoScanner
 
 def GetBoard():
     return Boards[2]
@@ -21,11 +22,13 @@ def PrintBoard(board):
             
 
 def main():
-    board = GetBoard()
-    PrintBoard(board)
-    slv = SudokuSolver(board)
-    slv.Solve()
-    PrintBoard(board)
+    scanner = SudokoScanner('./ExampleBoardsImages/IMG_9723.HEIC')
+    scanner.get_board_from_image()
+    # board = GetBoard()
+    # PrintBoard(board)
+    # slv = SudokuSolver(board)
+    # slv.Solve()
+    # PrintBoard(board)
 
 if __name__ == "__main__":
     main()
