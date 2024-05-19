@@ -22,7 +22,7 @@ def PrintBoard(board):
             
 
 def main():
-    scanner = SudokoScanner('./ExampleBoardsImages/IMG_9723.HEIC')
+    scanner = SudokoScanner('./ExampleBoardsImages/IMG_9725.HEIC')
     scanner.get_board_from_image()
     # board = GetBoard()
     # PrintBoard(board)

@@ -16,6 +16,7 @@ def convert_dounle_tuples_list_to_int(tuples_list):
 
 def sort_list(original_list):
     new_list = np.array(original_list,dtype = np.float32)
+    print(len(original_list))
     c = new_list.reshape((100,2))
     c2 = c[np.argsort(c[:,1])]
 

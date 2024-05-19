@@ -13,15 +13,28 @@ class SudokoScanner:
         else:
             img = cv2.imread(self.boardImagePath)
 
-    
+
         img = proportional_resize_image(img,6)
-
         cropped_board = self.crop_board_from_image(img)
-        #centroids_list = self.get_board_crosses_centroids(cropped_board)
+        centroids_list = self.get_board_crosses_centroids(cropped_board)
 
-        # for i,l in enumerate(centroids_list):
-        #     for j,c in l:
-        #         cv2.circle(cropped_board,c,4,(0,1,0),2)
+        for i,l in enumerate(remove_last_row_and_column(centroids_list)):
+            for j,p in enumerate(l):
+                cellImageCorners = [
+                    centroids_list[i][j],
+                    centroids_list[i][j+1],
+                    centroids_list[i+1][j],
+                    centroids_list[i+1][j+1],
+                ]
+                cellImg = self.crop_image(cropped_board,cellImageCorners,0)
+                cv2.imshow('cell',cellImg)
+                break
+            break
+
+        centroids_list = remove_last_row_and_column(centroids_list)
+        for i,l in enumerate(centroids_list):
+            for c in l:
+                cv2.circle(cropped_board, c, 2, (255,0,0), 2)
         cv2.imshow('asd',cropped_board)
         cv2.waitKey(0)
 
@@ -76,7 +89,7 @@ class SudokoScanner:
 
         dx = cv2.Sobel(withoutBackgroundImage,cv2.CV_16S,1,0)
         dx = cv2.convertScaleAbs(dx)
-        cv2.normalize(dx,dx,0,255,cv2.NORM_MINMAX)
+        cv2.normalize(dx,dx,1,255,cv2.NORM_MINMAX)
         ret,close = cv2.threshold(dx,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
         close = cv2.morphologyEx(close,cv2.MORPH_DILATE,kernelx,iterations = 1)
 
@@ -92,7 +105,7 @@ class SudokoScanner:
     
     def get_horitontal_lines(self,withoutBackgroundImage):
         kernely = cv2.getStructuringElement(cv2.MORPH_RECT,(10,2))
-        dy = cv2.Sobel(withoutBackgroundImage,cv2.CV_16S,0,2)
+        dy = cv2.Sobel(withoutBackgroundImage,cv2.CV_16S,0,1)
         dy = cv2.convertScaleAbs(dy)
         cv2.normalize(dy,dy,0,255,cv2.NORM_MINMAX)
         ret,close = cv2.threshold(dy,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
@@ -128,11 +141,16 @@ class SudokoScanner:
         crosses_centroids = self.get_board_crosses_centroids(img)
         return [crosses_centroids[0][0],crosses_centroids[0][-1],crosses_centroids[-1][-1],crosses_centroids[-1][0]]
 
-    def crop_board_from_image(self,img):
-        board_corners = self.get_board_corners(img)
-        rect = order_points(board_corners)
+    def crop_image(self,img,corners,offset=0):
+        rect = order_points(corners)
+        rect[0] = [rect[0][0]-offset,rect[0][1]-offset] #tl
+        rect[1] = [rect[1][0]+offset,rect[1][1]-offset] # tr
+        rect[2] = [rect[2][0]+offset,rect[2][1]+offset] #br
+        rect[3] = [rect[3][0]-offset,rect[3][1]+offset] #bl
         (tl,tr,br,bl) = rect
 
+
+        # (tl,tr,br,bl) = ((int(tl[0]-offset),int(tl[1]-offset)),(int(tr[0]+offset),int(tr[1]-offset)),(int(br[0]-offset),int(br[1]+offset)),(int(bl[0]+offset),int(bl[1]+offset)))
         widthA = np.sqrt(((br[0] - bl[0]) ** 2) + ((br[1] - bl[1]) ** 2))
         widthB = np.sqrt(((tr[0] - tl[0]) ** 2) + ((tr[1] - tl[1]) ** 2))
         maxWidth = max(int(widthA), int(widthB))
@@ -150,6 +168,11 @@ class SudokoScanner:
         M = cv2.getPerspectiveTransform(rect, dst)
         warped = cv2.warpPerspective(img, M, (maxWidth, maxHeight))
         return warped
+
+    def crop_board_from_image(self,img):
+        board_corners = self.get_board_corners(img)
+        return self.crop_image(img,board_corners,15)
+        
 
 
         transform_matrix = cv2.getPerspectiveTransform(np.array(board_corners, dtype=np.float32), bounding_box.astype(np.float32))
