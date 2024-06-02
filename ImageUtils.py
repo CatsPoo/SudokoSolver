@@ -47,3 +47,22 @@ def proportional_resize_image(img,scale):
     (h,w) = img.shape[:2]
     dim = (h//scale,w//scale)
     return cv2.resize(img,dim, interpolation=cv2.INTER_AREA)
+
+def image_to_vector(image_path, size=(64, 64), grayscale=True):
+    # Load the image
+    image = cv2.imread(image_path)
+    
+    # Convert to grayscale if needed
+    if grayscale:
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    
+    # Resize the image
+    image = cv2.resize(image, size)
+    
+    # Normalize the image
+    image = image / 255.0
+    
+    # Flatten the image to a 1D vector
+    image_vector = image.flatten()
+    
+    return image_vector
