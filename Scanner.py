@@ -2,23 +2,52 @@ import cv2
 import numpy as np
 from typing import List
 from FormatConverter import convert_heic_to_jpeg, get_File_Formate
-from Utils import proportional_resize_image, sort_list,convert_dounle_tuples_list_to_int,remove_last_row_and_column,order_points
+from Utils import sort_list,convert_dounle_tuples_list_to_int,remove_last_row_and_column
+from ImageRecognitionUtils import crop_image, normlize_gray_image, convert_image_to_gray_sale,proportional_resize_image
+from OCR import get_text_from_image
 class SudokoScanner:
-    def __init__(self,boardImage) -> None:
-        self.boardImagePath = boardImage
-    
-    def get_board_from_image(self) -> List[List[int]]:
-        if(get_File_Formate(self.boardImagePath) == 'HEIC'):
-            img = convert_heic_to_jpeg(self.boardImagePath)
+    def __init__(self,boardImagePath) -> None:
+        self.img = None
+
+        if(get_File_Formate(boardImagePath) == 'HEIC'):
+            self.img = convert_heic_to_jpeg(boardImagePath)
         else:
-            img = cv2.imread(self.boardImagePath)
+            self.img = cv2.imread(boardImagePath)
 
+        self.img = proportional_resize_image(self.img,5)
+        
+    def get_image(self):
+        return self.img
 
-        img = proportional_resize_image(img,6)
-        cropped_board = self.crop_board_from_image(img)
-        centroids_list = self.get_board_crosses_centroids(cropped_board)
+    def get_board_image(self):
+        return self.crop_board_from_image(self.img.copy())
+
+    def get_board_from_image(self) -> List[List[int]]:
+
+        cropped_board = self.crop_board_from_image(self.img.copy())
+        
+        # centroids_list = remove_last_row_and_column(centroids_list)
+        
+        # for i,l in enumerate(centroids_list):
+        #     for c in l:
+        #         cv2.circle(cropped_board, c, 2, (255,0,0), 2)
+        
+        cellsImageArray = self.get_array_of_cells_images(cropped_board)
+        print(get_text_from_image(cellsImageArray[0][0]))
+        cv2.imshow('asd',cellsImageArray[0][0])
+        cv2.waitKey(0)
+
+    def convert_cells_images_array_to_int_array(self,cellsImages):
+        for l in cellsImages:
+            for cell in l:
+                pass
+
+    def get_array_of_cells_images(self,board_image):
+        cellsImageList = []
+        centroids_list = self.get_board_crosses_centroids(board_image)
 
         for i,l in enumerate(remove_last_row_and_column(centroids_list)):
+            cellsImageList.append([])
             for j,p in enumerate(l):
                 cellImageCorners = [
                     centroids_list[i][j],
@@ -26,46 +55,28 @@ class SudokoScanner:
                     centroids_list[i+1][j],
                     centroids_list[i+1][j+1],
                 ]
-                cellImg = self.crop_image(cropped_board,cellImageCorners,0)
-                cv2.imshow('cell',cellImg)
-                break
-            break
-
-        centroids_list = remove_last_row_and_column(centroids_list)
-        for i,l in enumerate(centroids_list):
-            for c in l:
-                cv2.circle(cropped_board, c, 2, (255,0,0), 2)
-        cv2.imshow('asd',cropped_board)
-        cv2.waitKey(0)
+                cellImg = crop_image(board_image,cellImageCorners)
+                cellsImageList[-1].append(cellImg)
+        
+        return cellsImageList
+                
 
     def get_board_crosses_centroids(self,img):
-        grayImage = self.convert_image_to_gray_sale(img)
-        normlizedImage = self.normlize_gray_image(grayImage)
+        grayImage = convert_image_to_gray_sale(img)
+        normlizedImage = normlize_gray_image(grayImage)
         withoutBackgroundImage = self.clean_board_background(normlizedImage)
         crossesImage = self.get_crosses_points_image(withoutBackgroundImage)
         centroids_list =  self.get_crosses_points_list(crossesImage)
         sorted_centroid_list = sort_list(centroids_list)
-        return convert_dounle_tuples_list_to_int(sorted_centroid_list)
-
-
-    def normlize_gray_image(self,grayImg):
-        kernel1 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(11,11))
-
-        close = cv2.morphologyEx(grayImg,cv2.MORPH_CLOSE,kernel1)
-        div = np.float32(grayImg)/(close)
-        res = np.uint8(cv2.normalize(div,div,0,255,cv2.NORM_MINMAX))
-        return res
-
-    def convert_image_to_gray_sale(self,img):
-        gray = cv2.GaussianBlur(img,(5,5),0)
-        gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-        return gray
-        
+        return convert_dounle_tuples_list_to_int(sorted_centroid_list)        
     
     def get_board_mask(self,normlizedImg):
         mask = np.zeros((normlizedImg.shape),np.uint8)
-        thresh = cv2.adaptiveThreshold(normlizedImg,255,0,1,19,2)
-        contour,hier = cv2.findContours(thresh,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+        #thresh = cv2.adaptiveThreshold(normlizedImg,255,0,1,19,2)
+        edges_lines =cv2.Canny(normlizedImg,60,200)
+        kernel = np.ones((5,5),np.uint8)
+        closing_edges_lines = cv2.morphologyEx(edges_lines, cv2.MORPH_CLOSE, kernel,iterations=1)
+        contour,hier = cv2.findContours(closing_edges_lines,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
         max_area = 0
         best_cnt = None
         for cnt in contour:
@@ -141,42 +152,8 @@ class SudokoScanner:
         crosses_centroids = self.get_board_crosses_centroids(img)
         return [crosses_centroids[0][0],crosses_centroids[0][-1],crosses_centroids[-1][-1],crosses_centroids[-1][0]]
 
-    def crop_image(self,img,corners,offset=0):
-        rect = order_points(corners)
-        rect[0] = [rect[0][0]-offset,rect[0][1]-offset] #tl
-        rect[1] = [rect[1][0]+offset,rect[1][1]-offset] # tr
-        rect[2] = [rect[2][0]+offset,rect[2][1]+offset] #br
-        rect[3] = [rect[3][0]-offset,rect[3][1]+offset] #bl
-        (tl,tr,br,bl) = rect
-
-
-        # (tl,tr,br,bl) = ((int(tl[0]-offset),int(tl[1]-offset)),(int(tr[0]+offset),int(tr[1]-offset)),(int(br[0]-offset),int(br[1]+offset)),(int(bl[0]+offset),int(bl[1]+offset)))
-        widthA = np.sqrt(((br[0] - bl[0]) ** 2) + ((br[1] - bl[1]) ** 2))
-        widthB = np.sqrt(((tr[0] - tl[0]) ** 2) + ((tr[1] - tl[1]) ** 2))
-        maxWidth = max(int(widthA), int(widthB))
-
-        heightA = np.sqrt(((tr[0] - br[0]) ** 2) + ((tr[1] - br[1]) ** 2))
-        heightB = np.sqrt(((tl[0] - bl[0]) ** 2) + ((tl[1] - bl[1]) ** 2))
-        maxHeight = max(int(heightA), int(heightB))
-       
-        dst = np.array([
-            [0, 0],
-            [maxWidth - 1, 0],
-            [maxWidth - 1, maxHeight - 1],
-            [0, maxHeight - 1]], dtype = "float32")
-
-        M = cv2.getPerspectiveTransform(rect, dst)
-        warped = cv2.warpPerspective(img, M, (maxWidth, maxHeight))
-        return warped
-
     def crop_board_from_image(self,img):
         board_corners = self.get_board_corners(img)
-        return self.crop_image(img,board_corners,15)
+        return crop_image(img,board_corners,5)
         
-
-
-        transform_matrix = cv2.getPerspectiveTransform(np.array(board_corners, dtype=np.float32), bounding_box.astype(np.float32))
-        stretched_image = cv2.warpPerspective(img, transform_matrix, (img.shape[1], img.shape[0]))
-        return stretched_image
-    
 

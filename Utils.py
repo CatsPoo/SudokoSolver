@@ -1,11 +1,6 @@
 import cv2
 import numpy as np
 
-def proportional_resize_image(img,scale):
-    (h,w) = img.shape[:2]
-    dim = (h//scale,w//scale)
-    return cv2.resize(img,dim, interpolation=cv2.INTER_AREA)
-
 def convert_dounle_tuples_list_to_int(tuples_list):
     new_list = []
     for l in tuples_list:
