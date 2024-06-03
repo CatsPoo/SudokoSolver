@@ -1,9 +1,6 @@
 import cv2
 import numpy as np
 import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
-from matplotlib.colors import ListedColormap
 import sklearn
 from sklearn import preprocessing, metrics, pipeline, model_selection, feature_extraction 
 from sklearn import naive_bayes, linear_model, svm, neural_network, neighbors, tree
@@ -31,7 +28,7 @@ from sklearn.base import BaseEstimator, ClassifierMixin
 import warnings
 from sklearn.exceptions import ConvergenceWarning
 from ..ImageUtils import image_to_vector
-
+import os
 class Vectorizer(BaseEstimator, ClassifierMixin):
     def __init__(self,size=(64, 64), grayscale=True):
         self.size = size
@@ -99,8 +96,13 @@ def generate_model_training_pipeline(
     ])
 
 
+def build_dataset(base_dir):
+    for dir in os.listdir(base_dir):
+        print(dir)
+
 def train():
     pass
 
 if(__name__ == '__main__'):
+    build_dataset(os.path.join('.','assets'))
     train()
