@@ -1,6 +1,8 @@
-from ExampleBoards import Boards
-from Solver import SudokuSolver
-from Scanner import SudokoScanner
+from SudokoSolver.ExampleBoards import Boards
+from SudokoSolver.Solver import SudokuSolver
+from SudokoSolver.Scanner import SudokoScanner
+from DigitRecognizer.DigitRecognizerModelTrainer import build_dataset
+import os
 
 def GetBoard():
     return Boards[2]
@@ -31,4 +33,7 @@ def main():
     # PrintBoard(board)
 
 if __name__ == "__main__":
-    main()
+    #main()
+    import pandas as pd
+    df = build_dataset(os.path.join('DigitRecognizer','assets'))
+    print(df.loc[2454])

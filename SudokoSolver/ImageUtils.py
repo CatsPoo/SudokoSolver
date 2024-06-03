@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from Utils import order_points
+from SudokoSolver.Utils import order_points
 
 def crop_image(img,corners,offset=0):
     rect = order_points(corners)

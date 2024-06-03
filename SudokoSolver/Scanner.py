@@ -1,10 +1,9 @@
 import cv2
 import numpy as np
 from typing import List
-from FormatConverter import convert_heic_to_jpeg, get_File_Formate
-from Utils import sort_list,convert_dounle_tuples_list_to_int,remove_last_row_and_column
-from ImageRecognitionUtils import crop_image, normlize_gray_image, convert_image_to_gray_sale,proportional_resize_image
-from OCR import get_text_from_image
+from SudokoSolver.FormatConverter import convert_heic_to_jpeg, get_File_Formate
+from SudokoSolver.Utils import sort_list,convert_dounle_tuples_list_to_int,remove_last_row_and_column
+from SudokoSolver.ImageUtils import crop_image, normlize_gray_image, convert_image_to_gray_sale,proportional_resize_image
 class SudokoScanner:
     def __init__(self,boardImagePath) -> None:
         self.img = None
@@ -33,7 +32,7 @@ class SudokoScanner:
         #         cv2.circle(cropped_board, c, 2, (255,0,0), 2)
         
         cellsImageArray = self.get_array_of_cells_images(cropped_board)
-        print(get_text_from_image(cellsImageArray[0][0]))
+        #print(get_text_from_image(cellsImageArray[0][0]))
         cv2.imshow('asd',cellsImageArray[0][0])
         cv2.waitKey(0)
 

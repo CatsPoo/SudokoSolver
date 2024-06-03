@@ -25,10 +25,14 @@ from sklearn.utils import shuffle
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.preprocessing import MaxAbsScaler
 from sklearn.base import BaseEstimator, ClassifierMixin
-import warnings
+
 from sklearn.exceptions import ConvergenceWarning
-from ..ImageUtils import image_to_vector
+from SudokoSolver.ImageUtils import image_to_vector
 import os
+
+IMAGE_PATH = 'image_path'
+NUMBER = 'number'
+
 class Vectorizer(BaseEstimator, ClassifierMixin):
     def __init__(self,size=(64, 64), grayscale=True):
         self.size = size
@@ -38,7 +42,7 @@ class Vectorizer(BaseEstimator, ClassifierMixin):
         return self
     
     def transform(self,x,y):
-        vectors = x['image_url'].apply(image_to_vector, size=self.size, grayscale=self.grayscale)
+        vectors = x.apply(image_to_vector, size=self.size, grayscale=self.grayscale)
         X_transformed = pd.concat([x[['id']], vectors], axis=1)
         return X_transformed, y
 
@@ -95,14 +99,77 @@ def generate_model_training_pipeline(
     ('model_trainer',FitOptimezedModel(classifier_name,classifier,params,cv_count))
     ])
 
+def generate_piplines_from_classifiers_list(classifiers_list,vectorizer):   
+    models_piplines = []
+    for classifiers in classifiers_list:
+        models_piplines.append(generate_model_training_pipeline(
+            classifier_name = classifiers.clf_name,
+            classifier = classifiers.clf,
+            params = classifiers.params,
+
+        ))
+    return models_piplines
+
+class Classifier:
+    def __init__(self,clf_name,clf,params,scaler=None):
+        self.clf_name = clf_name
+        self.clf = clf
+        self.params = params,
+        self.scaler = scaler
+
+def get_best_model_pipeline(piplines_list):
+    best_model_score = 0
+    best_model_pipe = None
+
+    for pipe in piplines_list:
+        current_model_score = pipe['model_trainer'].get_best_score()
+        if(current_model_score > best_model_score):
+            best_model_score = current_model_score
+            best_model_pipe = pipe
+            
+    return best_model_pipe
+        
+
+def fit_piplines(pipes,x,y):
+    for pipe in pipes:
+        pipe.fit_transform(x,y)
+
+classifiers = [
+    Classifier('SVC',SVC(),{'C': [0.1,0.5, 1,3,5,10], 'kernel': ['linear', 'rbf']},MaxAbsScaler()),
+    Classifier('LinearSVC',LinearSVC(),{'C': [0.1,0.5, 1,3,5,10]},MaxAbsScaler()),
+    Classifier('Random Forest',RandomForestClassifier(),{'n_estimators': [10,20,40,60, 100],'max_depth':[5,15,30,60,100]}),
+    Classifier('Gradient Boosting',GradientBoostingClassifier(),{'n_estimators': [100, 200, 300],'learning_rate': [0.01, 0.1, 0.2],'max_depth': [3, 5, 7]}),
+    Classifier('DecisionTreeClassifier',DecisionTreeClassifier(),{'max_depth':[12,28,30,31],'min_samples_split':[3,15,50,150,200]}),
+    Classifier('KNeighborsClassifier',KNeighborsClassifier(),{'n_neighbors':[5,11,21,31,61,101],'p':[1,2]},MaxAbsScaler()),
+    Classifier('MultinomialNB',MultinomialNB(),{'alpha': [0.01, 0.1, 1, 10],'fit_prior': [True, False],'class_prior': [None, [0.25, 0.25, 0.5], [0.5, 0.25, 0.25]],}),
+    Classifier('GaussianNB',GaussianNB(),{'priors':[None, [0.3, 0.7], [0.4, 0.6], [0.7, 0.3]]})
+]
+
 
 def build_dataset(base_dir):
+    dataset_dict = {
+        IMAGE_PATH: [],
+        NUMBER:[]}
+    
     for dir in os.listdir(base_dir):
-        print(dir)
+        if(dir == 10): continue
+
+        current_folder_path = os.path.join(base_dir,dir)
+        for img in os.scandir(current_folder_path):
+            dataset_dict[IMAGE_PATH].append(os.path.join(current_folder_path,img))
+            dataset_dict[NUMBER].append(dir)
+    return pd.DataFrame(dataset_dict)
+
 
 def train():
-    pass
+    df = build_dataset(os.path.join('DigitRecognizer','assets'))
+    pipes = generate_piplines_from_classifiers_list(classifiers)
+    
+    for pipe in pipes:
+        pipe.fit_transform(df[IMAGE_PATH],df[NUMBER])
 
-if(__name__ == '__main__'):
-    build_dataset(os.path.join('.','assets'))
-    train()
+
+
+# if(__name__ == '__main__'):
+#     build_dataset(os.path.join('.','assets'))
+#     train()
