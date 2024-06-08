@@ -33,7 +33,4 @@ def main():
     # PrintBoard(board)
 
 if __name__ == "__main__":
-    #main()
-    import pandas as pd
-    df = build_dataset(os.path.join('DigitRecognizer','assets'))
-    print(df.loc[2454])
+    main()
