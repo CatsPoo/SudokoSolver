@@ -32,14 +32,13 @@ def crop_image(img,corners,offset=0):
 
 def normlize_gray_image(grayImg):
     kernel1 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(11,11))
-
     close = cv2.morphologyEx(grayImg,cv2.MORPH_CLOSE,kernel1)
     div = np.float32(grayImg)/(close)
     res = np.uint8(cv2.normalize(div,div,0,255,cv2.NORM_MINMAX))
     return res
 
 def convert_image_to_gray_sale(img):
-    gray = cv2.GaussianBlur(img,(5,5),0)
+    #gray = cv2.GaussianBlur(img,(5,5),0)
     gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
     return gray
 
@@ -48,21 +47,27 @@ def proportional_resize_image(img,scale):
     dim = (h//scale,w//scale)
     return cv2.resize(img,dim, interpolation=cv2.INTER_AREA)
 
-def image_to_vector(image_path, size=(64, 64), grayscale=True):
+def image_to_vector(image_path, size=(64, 64), grayscale=True, invert_image = False):
     # Load the image
     image = cv2.imread(image_path)
-    
     # Convert to grayscale if needed
-    if grayscale:
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    
+    image = convert_image_to_gray_sale(image)
+    #image = normlize_gray_image(image)
+    threshold_value = 100
+    _, image = cv2.threshold(image, threshold_value, 255, cv2.THRESH_BINARY)
+
     # Resize the image
     image = cv2.resize(image, size)
-    
+
     # Normalize the image
     image = image / 255.0
-    
+
+    if(invert_image):
+        image = 1 - image
+
+    # cv2.imshow('asa',image)
+    # cv2.waitKey(0)
+
     # Flatten the image to a 1D vector
     image_vector = image.flatten()
-    
     return image_vector

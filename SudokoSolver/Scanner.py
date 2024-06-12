@@ -4,6 +4,7 @@ from typing import List
 from SudokoSolver.FormatConverter import convert_heic_to_jpeg, get_File_Formate
 from SudokoSolver.Utils import sort_list,convert_dounle_tuples_list_to_int,remove_last_row_and_column
 from SudokoSolver.ImageUtils import crop_image, normlize_gray_image, convert_image_to_gray_sale,proportional_resize_image
+from SudokoSolver.OCR import predict_digit
 class SudokoScanner:
     def __init__(self,boardImagePath) -> None:
         self.img = None
@@ -34,6 +35,7 @@ class SudokoScanner:
         cellsImageArray = self.get_array_of_cells_images(cropped_board)
         #print(get_text_from_image(cellsImageArray[0][0]))
         cv2.imshow('asd',cellsImageArray[0][0])
+        predict_digit(cellsImageArray[0][0])
         cv2.waitKey(0)
 
     def convert_cells_images_array_to_int_array(self,cellsImages):

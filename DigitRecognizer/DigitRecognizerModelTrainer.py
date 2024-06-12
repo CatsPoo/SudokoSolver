@@ -1,57 +1,40 @@
 import cv2
 import numpy as np
 import pandas as pd
-import sklearn
-from sklearn import preprocessing, metrics, pipeline, model_selection, feature_extraction 
-from sklearn import naive_bayes, linear_model, svm, neural_network, neighbors, tree
-from sklearn import decomposition, cluster
-from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV 
+from sklearn.model_selection import cross_val_score 
 from sklearn.pipeline import Pipeline
-from sklearn.metrics import accuracy_score, confusion_matrix
-from sklearn.metrics import precision_score, recall_score, f1_score,make_scorer
-from sklearn.metrics import mean_squared_error, r2_score, silhouette_score
-from sklearn.preprocessing import MinMaxScaler, StandardScaler, LabelEncoder
-from sklearn.svm import LinearSVC, SVC
 from sklearn.neural_network import MLPClassifier
-from sklearn.linear_model import Perceptron, SGDClassifier,LogisticRegression
-from sklearn.decomposition import PCA
-from sklearn.cluster import KMeans
-from sklearn.naive_bayes import MultinomialNB, GaussianNB
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.base import BaseEstimator,TransformerMixin
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.utils import shuffle
-from sklearn.ensemble import GradientBoostingClassifier
-from sklearn.preprocessing import MaxAbsScaler
-from sklearn.base import BaseEstimator, ClassifierMixin
+from sklearn.base import BaseEstimator, ClassifierMixin,TransformerMixin
 from sklearn.neural_network import MLPClassifier
-
-from sklearn.exceptions import ConvergenceWarning
 from SudokoSolver.ImageUtils import image_to_vector
 import os
 
 IMAGE_PATH = 'image_path'
 NUMBER = 'number'
 
-class Vectorizer(BaseEstimator, ClassifierMixin):
-    def __init__(self,size=(64, 64), grayscale=True):
+class Vectorizer(BaseEstimator, TransformerMixin):
+    def __init__(self,size=(64, 64), grayscale=True,invert_image = False):
         self.size = size
         self.grayscale = grayscale
+        self.invert_image = invert_image
+        self.dataset = None
         
-    def fit(self,x,y):
-        return x,y
+    def fit(self,x,y=None):
+        return self
     
     def transform(self,x,y=None):
         X_transformed = x.copy()
-        X_transformed['vectors'] = x[IMAGE_PATH].apply(image_to_vector, size=self.size, grayscale=self.grayscale)
+        X_transformed['vectors'] = x[IMAGE_PATH].apply(image_to_vector, size=self.size, grayscale=self.grayscale,invert_image=self.invert_image)
         values_df = pd.DataFrame(X_transformed['vectors'].tolist(), index=X_transformed['vectors'].index)
         X_transformed = X_transformed.drop('vectors', axis=1).join(values_df)
-        return X_transformed.drop(IMAGE_PATH,axis=1), y
+        X_transformed = X_transformed.drop(IMAGE_PATH,axis=1)
+        self.dataset = X_transformed
+        return X_transformed
+    
+    def set_invert_image(self,val):
+        self.invert_image = val
 
-    def fit_transform(self,x,y=None):
-        x,y = self.fit(x,y)
-        return self.transform(x,y)
 
 
 class FitOptimezedModel(BaseEstimator, ClassifierMixin):
@@ -67,7 +50,6 @@ class FitOptimezedModel(BaseEstimator, ClassifierMixin):
     def fit(self,x,y):
         if(isinstance(x, tuple)):
             x=x[0]
-        
 
         temp_df = pd.concat([x,y],axis=1)
         temp_df = temp_df.sample(frac=1).reset_index(drop=True)
@@ -76,15 +58,12 @@ class FitOptimezedModel(BaseEstimator, ClassifierMixin):
 
         print('Starting fit model {} .....'.format(self.classifier_name))
         self.cv_result = cross_val_score(self.classifier,x,y,cv=self.cv_count)
-
+        self.classifier.fit(x, y)
         print('model name: {}, score: {}'.format(self.classifier_name,self.get_best_score()))
         return self
 
-    def transform(self,x,y=None):
-        return x,y
-
-    def predicit(self,x):
-        return self.classifier.ppredict(x)
+    def predict(self,x):
+        return self.classifier.predict(x)
         #return self.grid_search_cv.best_estimator_.predict(x)
         
     def get_best_score(self):
@@ -129,16 +108,31 @@ def fit_piplines(pipes,x,y):
         pipe.fit_transform(x,y)
 
 classifiers = [
-    #Classifier('SVC',SVC(),{'C': [0.1,0.5, 1,3,5,10], 'kernel': ['linear', 'rbf']},MaxAbsScaler()),
-    #Classifier('LinearSVC',LinearSVC(),{'C': [0.1,0.5, 1,3,5,10]},MaxAbsScaler()),
-    Classifier('Random Forest',RandomForestClassifier(),{'n_estimators': [10,20,40,60, 100],'max_depth':[5,15,30,60,100]}),
-    Classifier('Gradient Boosting',GradientBoostingClassifier(),{'n_estimators': [100, 200, 300],'learning_rate': [0.01, 0.1, 0.2],'max_depth': [3, 5, 7]}),
-    Classifier('DecisionTreeClassifier',DecisionTreeClassifier(),{'max_depth':[12,28,30,31],'min_samples_split':[3,15,50,150,200]}),
-    Classifier('KNeighborsClassifier',KNeighborsClassifier(),{'n_neighbors':[5,11,21,31,61,101],'p':[1,2]},MaxAbsScaler()),
-    Classifier('MultinomialNB',MultinomialNB(),{'alpha': [0.01, 0.1, 1, 10],'fit_prior': [True, False],'class_prior': [None, [0.25, 0.25, 0.5], [0.5, 0.25, 0.25]],}),
-    Classifier('GaussianNB',GaussianNB(),{'priors':[None, [0.3, 0.7], [0.4, 0.6], [0.7, 0.3]]}),
-    Classifier('MLPClassifier',MLPClassifier(hidden_layer_sizes=(100,), max_iter=300, alpha=0.0001,solver='adam', random_state=42),{})
+    # Classifier('Random Forest',RandomForestClassifier(n_estimators=20),{}),
+    Classifier('Random Forest',RandomForestClassifier(n_estimators=5000),{}),
+    Classifier('MLPClassifier',MLPClassifier(hidden_layer_sizes=(128,64,32), max_iter=600, alpha=0.0001,solver='adam', random_state=42,activation='relu'),{}),
+    Classifier('MLPClassifier',MLPClassifier(hidden_layer_sizes=(128,64), max_iter=600, alpha=0.0001,solver='adam', random_state=42,activation='relu'),{}),
+    Classifier('MLPClassifier',MLPClassifier(hidden_layer_sizes=(64,32), max_iter=600, alpha=0.0001,solver='adam', random_state=42,activation='relu'),{}),
+    Classifier('MLPClassifier',MLPClassifier(hidden_layer_sizes=(64,32,16), max_iter=600, alpha=0.0001,solver='adam', random_state=42,activation='relu'),{}),
+    Classifier('MLPClassifier',MLPClassifier(hidden_layer_sizes=(50,50,50), max_iter=600, alpha=0.0001,solver='adam', random_state=42,activation='relu'),{}),
+    Classifier('MLPClassifier',MLPClassifier(hidden_layer_sizes=(100,100), max_iter=600, alpha=0.0001,solver='adam', random_state=42,activation='relu'),{}),
+    Classifier('MLPClassifier',MLPClassifier(hidden_layer_sizes=(100,70,50), max_iter=600, alpha=0.0001,solver='adam', random_state=42,activation='relu'),{}),
+    Classifier('MLPClassifier',MLPClassifier(hidden_layer_sizes=(100,50,), max_iter=600, alpha=0.0001,solver='adam', random_state=42,activation='relu'),{}),
+    Classifier('MLPClassifier',MLPClassifier(hidden_layer_sizes=(100,100,100,), max_iter=600, alpha=0.0001,solver='adam', random_state=42,activation='relu'),{}),
 ]
+
+def get_best_model_pipeline(piplines_list):
+    best_model_score = 0
+    best_model_pipe = None
+
+    for pipe in piplines_list:
+        current_model_score = pipe['model_trainer'].get_best_score()
+        if(current_model_score > best_model_score):
+            best_model_score = current_model_score
+            best_model_pipe = pipe
+            
+    return best_model_pipe
+        
 
 
 def build_dataset(base_dir):
