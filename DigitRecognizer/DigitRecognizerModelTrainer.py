@@ -8,16 +8,29 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.base import BaseEstimator, ClassifierMixin,TransformerMixin
 from sklearn.neural_network import MLPClassifier
 from SudokoSolver.ImageUtils import image_to_vector
+from sklearn.metrics import f1_score,make_scorer
+from sklearn.model_selection import GridSearchCV
 import os
+from sklearn.svm import SVC
+from sklearn.model_selection import train_test_split
+import datetime
+
+from tensorflow import keras
+from tensorflow.keras.datasets import mnist
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.layers import Dropout
+from tensorflow.keras.layers import Flatten
+from tensorflow.keras.layers import Conv2D
+from tensorflow.keras.layers import MaxPooling2D
+from tensorflow.keras.utils import to_categorical
+
 
 IMAGE_PATH = 'image_path'
 NUMBER = 'number'
 
 class Vectorizer(BaseEstimator, TransformerMixin):
-    def __init__(self,size=(64, 64), grayscale=True,invert_image = False):
-        self.size = size
-        self.grayscale = grayscale
-        self.invert_image = invert_image
+    def __init__(self, ):
         self.dataset = None
         
     def fit(self,x,y=None):
@@ -25,139 +38,118 @@ class Vectorizer(BaseEstimator, TransformerMixin):
     
     def transform(self,x,y=None):
         X_transformed = x.copy()
-        X_transformed['vectors'] = x[IMAGE_PATH].apply(image_to_vector, size=self.size, grayscale=self.grayscale,invert_image=self.invert_image)
-        values_df = pd.DataFrame(X_transformed['vectors'].tolist(), index=X_transformed['vectors'].index)
-        X_transformed = X_transformed.drop('vectors', axis=1).join(values_df)
-        X_transformed = X_transformed.drop(IMAGE_PATH,axis=1)
+
+        #values_df = pd.DataFrame(X_transformed['vectors'].tolist(), index=X_transformed['vectors'].index)
+        # X_transformed = X_transformed.drop('vectors', axis=1).join(values_df)
+        # X_transformed = X_transformed.drop(IMAGE_PATH,axis=1)
+
+        X_transformed = np.reshape(X_transformed,(X_transformed.shape[0], 28, 28, 1)).astype('float32')
+        X_transformed = X_transformed/255
         self.dataset = X_transformed
         return X_transformed
     
     def set_invert_image(self,val):
         self.invert_image = val
+    
+    def set_debug(self,val):
+        self.debug = val
 
 
 
 class FitOptimezedModel(BaseEstimator, ClassifierMixin):
-    def __init__(self,classifier_name,classifier,params,cv_count):
+    def __init__(self,classifier_name,classifier):
         self.classifier_name = classifier_name
-        self.cv_count = cv_count
+        #self.cv_count = cv_count
         self.classifier = classifier
-        self.params = params
-        self.cv_result = 0
-        #self.grid_search_cv = GridSearchCV(self.classifier, self.params[0], cv=self.cv_count,scoring=make_scorer(f1_score, average='micro'))
+        self.score=0
+        #self.cv_result = 0
+        #self.grid_search_cv = GridSearchCV(self.classifier, self.params, cv=self.cv_count,scoring=make_scorer(f1_score, average='micro'))
 
     
-    def fit(self,x,y):
-        if(isinstance(x, tuple)):
+    def fit(self,X,y):
+        if(isinstance(X, tuple)):
             x=x[0]
 
-        temp_df = pd.concat([x,y],axis=1)
-        temp_df = temp_df.sample(frac=1).reset_index(drop=True)
-        y = temp_df[NUMBER]
-        x = temp_df.drop(NUMBER,axis=1) 
+        # temp_df = pd.concat([x,y],axis=1)
+        # temp_df = temp_df.sample(frac=1).reset_index(drop=True)
+        # y = temp_df[NUMBER]
+        # x = temp_df.drop(NUMBER,axis=1) 
 
+        X_train,X_test, y_train, y_test = train_test_split(X,y,test_size = 0.20, random_state= 21)
+        y_train = to_categorical(y_train)
+        y_test = to_categorical(y_test)
+        
         print('Starting fit model {} .....'.format(self.classifier_name))
-        self.cv_result = cross_val_score(self.classifier,x,y,cv=self.cv_count)
-        self.classifier.fit(x, y)
-        print('model name: {}, score: {}'.format(self.classifier_name,self.get_best_score()))
+        
+        model = larger_model()
+        log_dir = "logs/fit/"
+
+        self.classifier.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=10, batch_size=10,callbacks=[])
+        # Final evaluation of the model
+        self.score = self.classifier.evaluate(X_test, y_test, verbose=0)
+
+        print("Large CNN Error: %.2f%%" % (100-self.score[1]*100))
         return self
 
     def predict(self,x):
-        return self.classifier.predict(x)
-        #return self.grid_search_cv.best_estimator_.predict(x)
+        res = []
+        pred = self.classifier.predict(x,verbose = 1)
+        for p in pred:
+            res.append(p.argmax())
+        return np.array(res)
+    
         
     def get_best_score(self):
-        return self.cv_result.mean()
+        return self.score[1]
+        #self.grid_search_cv.best_score_
 
     def get_model_name(self):
         return self.classifier_name
 
+
     
 
-def generate_model_training_pipeline(
-    classifier_name,
-    classifier,
-    params,
-    cv_count = 5,):
+def generate_model_pipeline():
+
+    classifier_name = "model"
+    classifier = larger_model()
 
     return Pipeline(steps=[
     ('vectorizer', Vectorizer()),
-    ('model_trainer',FitOptimezedModel(classifier_name,classifier,params,cv_count))
+    ('model_trainer',FitOptimezedModel(classifier_name,classifier))
     ])
+           
 
-def generate_piplines_from_classifiers_list(classifiers_list):   
-    models_piplines = []
-    for classifiers in classifiers_list:
-        models_piplines.append(generate_model_training_pipeline(
-            classifier_name = classifiers.clf_name,
-            classifier = classifiers.clf,
-            params = classifiers.params,
-
-        ))
-    return models_piplines
-
-class Classifier:
-    def __init__(self,clf_name,clf,params,scaler=None):
-        self.clf_name = clf_name
-        self.clf = clf
-        self.params = params,
-        self.scaler = scaler        
-
-def fit_piplines(pipes,x,y):
-    for pipe in pipes:
-        pipe.fit_transform(x,y)
-
-classifiers = [
-    # Classifier('Random Forest',RandomForestClassifier(n_estimators=20),{}),
-    Classifier('Random Forest',RandomForestClassifier(n_estimators=5000),{}),
-    Classifier('MLPClassifier',MLPClassifier(hidden_layer_sizes=(128,64,32), max_iter=600, alpha=0.0001,solver='adam', random_state=42,activation='relu'),{}),
-    Classifier('MLPClassifier',MLPClassifier(hidden_layer_sizes=(128,64), max_iter=600, alpha=0.0001,solver='adam', random_state=42,activation='relu'),{}),
-    Classifier('MLPClassifier',MLPClassifier(hidden_layer_sizes=(64,32), max_iter=600, alpha=0.0001,solver='adam', random_state=42,activation='relu'),{}),
-    Classifier('MLPClassifier',MLPClassifier(hidden_layer_sizes=(64,32,16), max_iter=600, alpha=0.0001,solver='adam', random_state=42,activation='relu'),{}),
-    Classifier('MLPClassifier',MLPClassifier(hidden_layer_sizes=(50,50,50), max_iter=600, alpha=0.0001,solver='adam', random_state=42,activation='relu'),{}),
-    Classifier('MLPClassifier',MLPClassifier(hidden_layer_sizes=(100,100), max_iter=600, alpha=0.0001,solver='adam', random_state=42,activation='relu'),{}),
-    Classifier('MLPClassifier',MLPClassifier(hidden_layer_sizes=(100,70,50), max_iter=600, alpha=0.0001,solver='adam', random_state=42,activation='relu'),{}),
-    Classifier('MLPClassifier',MLPClassifier(hidden_layer_sizes=(100,50,), max_iter=600, alpha=0.0001,solver='adam', random_state=42,activation='relu'),{}),
-    Classifier('MLPClassifier',MLPClassifier(hidden_layer_sizes=(100,100,100,), max_iter=600, alpha=0.0001,solver='adam', random_state=42,activation='relu'),{}),
-]
-
-def get_best_model_pipeline(piplines_list):
-    best_model_score = 0
-    best_model_pipe = None
-
-    for pipe in piplines_list:
-        current_model_score = pipe['model_trainer'].get_best_score()
-        if(current_model_score > best_model_score):
-            best_model_score = current_model_score
-            best_model_pipe = pipe
-            
-    return best_model_pipe
-        
+def larger_model():
+        # create model
+        model = keras.Sequential(
+        [
+            Conv2D(30, (5, 5), input_shape=(28, 28, 1), activation='relu'),
+            MaxPooling2D(),
+            Conv2D(15, (3, 3), activation='relu'),
+            MaxPooling2D(),
+            Dropout(0.2),
+            Flatten(),
+            Dense(128, activation='relu'),
+            Dense(50, activation='relu'),
+            Dense(10, activation='softmax')
+        ])
+        # Compile model
+        model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+        return model
 
 
 def build_dataset(base_dir):
-    dataset_dict = {
-        IMAGE_PATH: [],
-        NUMBER:[]}
+    X = []
+    y = []
     for dir in os.listdir(base_dir):
-        if(dir == 10): continue
+        if(dir == '10'): continue
 
         current_folder_path = os.path.join(base_dir,dir)
         for img in os.scandir(current_folder_path):
-            dataset_dict[IMAGE_PATH].append(os.path.join(current_folder_path,str(img.name)))
-            dataset_dict[NUMBER].append(int(dir))
-    return pd.DataFrame(dataset_dict)
-
-
-def train():
-    df = build_dataset(os.path.join('DigitRecognizer','assets'))
-    pipes = generate_piplines_from_classifiers_list(classifiers)
-    
-    for pipe in pipes:
-        pipe.fit_transform(df[IMAGE_PATH],df[NUMBER])
-
-
-
-# if(__name__ == '__main__'):
-#     build_dataset(os.path.join('.','assets'))
-#     train()
+            img = image_to_vector(os.path.join(current_folder_path,str(img.name)))
+            X.append(img)
+            y.append(int(dir))
+    X = np.array(X)
+    y = np.array(y)
+    return X,y

@@ -47,27 +47,41 @@ def proportional_resize_image(img,scale):
     dim = (h//scale,w//scale)
     return cv2.resize(img,dim, interpolation=cv2.INTER_AREA)
 
-def image_to_vector(image_path, size=(64, 64), grayscale=True, invert_image = False):
-    # Load the image
-    image = cv2.imread(image_path)
-    # Convert to grayscale if needed
-    image = convert_image_to_gray_sale(image)
-    #image = normlize_gray_image(image)
-    threshold_value = 100
-    _, image = cv2.threshold(image, threshold_value, 255, cv2.THRESH_BINARY)
+def image_to_vector(img):
+    img = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+    img = cv2.resize(img,(28,28))
+    return img
 
-    # Resize the image
-    image = cv2.resize(image, size)
+from PIL import Image
+import pillow_heif
+import cv2
+import numpy as np
 
-    # Normalize the image
-    image = image / 255.0
+def convert_heic_to_jpeg(heic_path):
+    # Open the HEIC file using pillow-heif
+    heif_file = pillow_heif.open_heif(heic_path)
+    
+    # Convert to PIL Image
+    image = Image.frombytes(
+        heif_file.mode, 
+        heif_file.size, 
+        heif_file.data,
+        "raw",
+        heif_file.mode,
+        heif_file.stride,
+    )
+    
+    image_np = np.array(image)
+    
+    # Convert RGB to BGR format for OpenCV
+    image_bgr = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)
+    
+    return image_bgr
 
-    if(invert_image):
-        image = 1 - image
 
-    # cv2.imshow('asa',image)
-    # cv2.waitKey(0)
-
-    # Flatten the image to a 1D vector
-    image_vector = image.flatten()
-    return image_vector
+def get_File_Formate(imgpath:str):
+    strings = imgpath.split('.')
+    if(strings.__len__() <2):
+        return None
+    else: 
+        return strings[-1]

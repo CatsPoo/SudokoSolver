@@ -1,9 +1,8 @@
 import cv2
 import numpy as np
 from typing import List
-from SudokoSolver.FormatConverter import convert_heic_to_jpeg, get_File_Formate
 from SudokoSolver.Utils import sort_list,convert_dounle_tuples_list_to_int,remove_last_row_and_column
-from SudokoSolver.ImageUtils import crop_image, normlize_gray_image, convert_image_to_gray_sale,proportional_resize_image
+from SudokoSolver.ImageUtils import crop_image, normlize_gray_image, convert_image_to_gray_sale,proportional_resize_image, convert_heic_to_jpeg, get_File_Formate
 from SudokoSolver.OCR import predict_digit
 class SudokoScanner:
     def __init__(self,boardImagePath) -> None:
@@ -24,24 +23,24 @@ class SudokoScanner:
 
     def get_board_from_image(self) -> List[List[int]]:
 
+        board = []
         cropped_board = self.crop_board_from_image(self.img.copy())
+        ellsImageArray = self.get_array_of_cells_images(cropped_board)
         
-        # centroids_list = remove_last_row_and_column(centroids_list)
-        
-        # for i,l in enumerate(centroids_list):
-        #     for c in l:
-        #         cv2.circle(cropped_board, c, 2, (255,0,0), 2)
-        
-        cellsImageArray = self.get_array_of_cells_images(cropped_board)
-        #print(get_text_from_image(cellsImageArray[0][0]))
-        cv2.imshow('asd',cellsImageArray[0][0])
-        predict_digit(cellsImageArray[0][0])
-        cv2.waitKey(0)
+        #board = self.get_numbers_arrray_from_images(cellsImageArray)
 
-    def convert_cells_images_array_to_int_array(self,cellsImages):
-        for l in cellsImages:
-            for cell in l:
-                pass
+        for l in board:
+            for d in l:
+                print(d,end=' ')
+            print('')
+
+    def get_numbers_arrray_from_images(self,images_arr):
+        out = []
+        for line in images_arr:
+            out.append([])
+            for img in line:
+                out[-1].append(predict_digit(img))
+        return out
 
     def get_array_of_cells_images(self,board_image):
         cellsImageList = []
