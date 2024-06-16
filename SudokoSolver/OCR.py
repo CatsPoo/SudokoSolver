@@ -8,7 +8,7 @@ from SudokoSolver.ImageUtils import image_to_vector
 
 PATH = './temp_img.jpg'
 
-def predict_digit(img):
+def predict_digits(images_matrix):
 
     with open('./DigitRecognizer/fitted-model.pickle', 'rb') as file:
         # Deserialize and load the object from the file
@@ -16,18 +16,16 @@ def predict_digit(img):
 
     if(not model):
         return None
+    
+    images_list = []
+    for row in images_matrix:
+        for img in row:
+            images_list.append(255 - img)
 
-    import numpy as np
+    prediction = model.predict(images_list)
 
-    vectorsArr = []
-    vectorsArr.append(image_to_vector(img))
-
-    vectorsArr = np.array(vectorsArr)
-    vectorsArr[-1] = 1 - vectorsArr[-1]
-
-
-    prediction = model.predict(vectorsArr)[0]
-    return prediction
+    prediction = np.resize(prediction,(9,9))
+    return prediction.tolist()
     
     
     

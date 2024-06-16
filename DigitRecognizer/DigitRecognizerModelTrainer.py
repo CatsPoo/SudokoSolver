@@ -7,13 +7,16 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.base import BaseEstimator, ClassifierMixin,TransformerMixin
 from sklearn.neural_network import MLPClassifier
-from SudokoSolver.ImageUtils import image_to_vector
+from SudokoSolver.ImageUtils import image_to_vector,convert_image_to_gray_sale
+from SudokoSolver.Utils import get_list_shape
 from sklearn.metrics import f1_score,make_scorer
 from sklearn.model_selection import GridSearchCV
 import os
 from sklearn.svm import SVC
 from sklearn.model_selection import train_test_split
 import datetime
+
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 
 from tensorflow import keras
 from tensorflow.keras.datasets import mnist
@@ -37,17 +40,23 @@ class Vectorizer(BaseEstimator, TransformerMixin):
         return self
     
     def transform(self,x,y=None):
-        X_transformed = x.copy()
-
-        #values_df = pd.DataFrame(X_transformed['vectors'].tolist(), index=X_transformed['vectors'].index)
-        # X_transformed = X_transformed.drop('vectors', axis=1).join(values_df)
-        # X_transformed = X_transformed.drop(IMAGE_PATH,axis=1)
-
+        X_transformed = np.empty((len(x),28,28))
+        for i,row in enumerate(x):
+            current_image = np.array(x[i])
+            X_transformed[i] = self.vectorization_function(current_image)
+            
         X_transformed = np.reshape(X_transformed,(X_transformed.shape[0], 28, 28, 1)).astype('float32')
         X_transformed = X_transformed/255
         self.dataset = X_transformed
         return X_transformed
     
+    def vectorization_function(self,img):
+        if(len(img.shape)!=2):
+            img = convert_image_to_gray_sale(img)
+        if(img.shape != (28,28)):
+            return cv2.resize(img, (28,28), interpolation = 1)
+        return img
+
     def set_invert_image(self,val):
         self.invert_image = val
     
@@ -69,11 +78,6 @@ class FitOptimezedModel(BaseEstimator, ClassifierMixin):
     def fit(self,X,y):
         if(isinstance(X, tuple)):
             x=x[0]
-
-        # temp_df = pd.concat([x,y],axis=1)
-        # temp_df = temp_df.sample(frac=1).reset_index(drop=True)
-        # y = temp_df[NUMBER]
-        # x = temp_df.drop(NUMBER,axis=1) 
 
         X_train,X_test, y_train, y_test = train_test_split(X,y,test_size = 0.20, random_state= 21)
         y_train = to_categorical(y_train)
@@ -132,7 +136,7 @@ def larger_model():
             Flatten(),
             Dense(128, activation='relu'),
             Dense(50, activation='relu'),
-            Dense(10, activation='softmax')
+            Dense(15, activation='softmax')
         ])
         # Compile model
         model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
@@ -146,8 +150,8 @@ def build_dataset(base_dir):
         if(dir == '10'): continue
 
         current_folder_path = os.path.join(base_dir,dir)
-        for img in os.scandir(current_folder_path):
-            img = image_to_vector(os.path.join(current_folder_path,str(img.name)))
+        for img_path in os.scandir(current_folder_path):
+            img = image_to_vector(os.path.join(current_folder_path,str(img_path.name)))
             X.append(img)
             y.append(int(dir))
     X = np.array(X)

@@ -3,7 +3,7 @@ import numpy as np
 from typing import List
 from SudokoSolver.Utils import sort_list,convert_dounle_tuples_list_to_int,remove_last_row_and_column
 from SudokoSolver.ImageUtils import crop_image, normlize_gray_image, convert_image_to_gray_sale,proportional_resize_image, convert_heic_to_jpeg, get_File_Formate
-from SudokoSolver.OCR import predict_digit
+from SudokoSolver.OCR import predict_digits
 class SudokoScanner:
     def __init__(self,boardImagePath) -> None:
         self.img = None
@@ -25,11 +25,14 @@ class SudokoScanner:
 
         board = []
         cropped_board = self.crop_board_from_image(self.img.copy())
-        ellsImageArray = self.get_array_of_cells_images(cropped_board)
+        cells_images_array = self.get_array_of_cells_images(cropped_board)
         
+        predicted_numbers = predict_digits(cells_images_array)
+        #cv2.imwrite('test_image.jpg',cells_images_array[0][0])
+
         #board = self.get_numbers_arrray_from_images(cellsImageArray)
 
-        for l in board:
+        for l in predicted_numbers:
             for d in l:
                 print(d,end=' ')
             print('')

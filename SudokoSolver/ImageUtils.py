@@ -47,9 +47,10 @@ def proportional_resize_image(img,scale):
     dim = (h//scale,w//scale)
     return cv2.resize(img,dim, interpolation=cv2.INTER_AREA)
 
-def image_to_vector(img):
+def image_to_vector(image_path):
+    img = cv2.imread(image_path)
     img = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-    img = cv2.resize(img,(28,28))
+    img = cv2.resize(img,(28,28),interpolation= 4)
     return img
 
 from PIL import Image

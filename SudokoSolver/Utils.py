@@ -32,3 +32,12 @@ def order_points(pts):
     rect[1] = pts[np.argmin(diff)]
     rect[3] = pts[np.argmax(diff)]
     return rect
+
+def get_list_shape(lst):
+    if not isinstance(lst, list):
+        return []
+    shape = []
+    while isinstance(lst, list):
+        shape.append(len(lst))
+        lst = lst[0] if lst else []
+    return tuple(shape)
