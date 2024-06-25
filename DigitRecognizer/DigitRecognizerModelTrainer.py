@@ -135,8 +135,8 @@ def larger_model():
             Dropout(0.2),
             Flatten(),
             Dense(128, activation='relu'),
-            Dense(50, activation='relu'),
-            Dense(15, activation='softmax')
+            Dense(64, activation='relu'),
+            Dense(10, activation='softmax')
         ])
         # Compile model
         model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
