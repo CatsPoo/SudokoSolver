@@ -1,6 +1,8 @@
-from ExampleBoards import Boards
-from Solver import SudokuSolver
-from Scanner import SudokoScanner
+from SudokoSolver.ExampleBoards import Boards
+from SudokoSolver.Solver import SudokuSolver
+from SudokoSolver.Scanner import SudokoScanner
+from DigitRecognizer.DigitRecognizerModelTrainer import build_dataset
+import os
 
 def GetBoard():
     return Boards[2]
@@ -22,7 +24,7 @@ def PrintBoard(board):
             
 
 def main():
-    scanner = SudokoScanner('./ExampleBoardsImages/IMG_9725.HEIC')
+    scanner = SudokoScanner('./ExampleBoardsImages/IMG_9723.HEIC')
     scanner.get_board_from_image()
     # board = GetBoard()
     # PrintBoard(board)
