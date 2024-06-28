@@ -25,9 +25,9 @@ def PrintBoard(board):
 
 def main():
     scanner = SudokoScanner('./ExampleBoardsImages/IMG_9723.HEIC')
-    scanner.get_board_from_image()
+    board = scanner.get_board_from_image()
     # board = GetBoard()
-    # PrintBoard(board)
+    PrintBoard(board)
     # slv = SudokuSolver(board)
     # slv.Solve()
     # PrintBoard(board)
