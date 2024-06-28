@@ -9,6 +9,11 @@ class SudokoScanner:
         self.img = None
         self.is_image_cropped = False
 
+
+        if(not isinstance(boardImagePath, str)):
+            self.img = boardImagePath
+            return
+        
         if(get_File_Formate(boardImagePath) == 'HEIC'):
             self.img = convert_heic_to_jpeg(boardImagePath)
         else:
