@@ -1,6 +1,7 @@
+import copy
 class SudokuSolver:
     def __init__(self,board):
-        self.board=board
+        self.board=copy.deepcopy(board)
         self.constantMap=[]
         self.InitConstantMap()          
 
@@ -70,3 +71,4 @@ class SudokuSolver:
 
     def Solve(self):
         self.RecursiveSolve(0,0,1)
+        return self.board

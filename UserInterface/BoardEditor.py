@@ -6,6 +6,12 @@ class BoardEditor:
     def __init__(self,board) -> None:
         self.board = board
 
+    def setboard(self,board):
+        self.board = board
+
+    def getBoard(self):
+        return self.board
+    
     def print_board(self):
         print("\n @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ \n")
         for i,row in enumerate(self.board):
@@ -63,3 +69,4 @@ class BoardEditor:
 
     def edit_board(self):
         curses.wrapper(self._edit_board)
+        return self.board
