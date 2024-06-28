@@ -7,6 +7,7 @@ from SudokoSolver.OCR import predict_digits
 class SudokoScanner:
     def __init__(self,boardImagePath) -> None:
         self.img = None
+        self.is_image_cropped = False
 
         if(get_File_Formate(boardImagePath) == 'HEIC'):
             self.img = convert_heic_to_jpeg(boardImagePath)
@@ -16,14 +17,13 @@ class SudokoScanner:
         self.img = proportional_resize_image(self.img,5)
         
     def get_image(self):
-        return self.img
+        return self.img.copy()
 
     def get_board_image(self):
-        return self._crop_board_from_image(self.img.copy())
+        return self._crop_board_from_image()
 
     def get_board_from_image(self) -> List[List[int]]:
-        cropped_board = self._crop_board_from_image(self.img.copy())
-        cells_images_array = self._get_array_of_cells_images(cropped_board)
+        cells_images_array = self._get_array_of_cells_images()
         
         predicted_numbers = predict_digits(cells_images_array)
 
@@ -37,9 +37,10 @@ class SudokoScanner:
                 out[-1].append(predict_digits(img))
         return out
 
-    def _get_array_of_cells_images(self,board_image):
+    def _get_array_of_cells_images(self):
+        board_image = self._crop_board_from_image()
         cellsImageList = []
-        centroids_list = self._get_board_crosses_centroids(board_image)
+        centroids_list = self._get_board_crosses_centroids()
 
         for i,l in enumerate(remove_last_row_and_column(centroids_list)):
             cellsImageList.append([])
@@ -56,16 +57,14 @@ class SudokoScanner:
         return cellsImageList
                 
 
-    def _get_board_crosses_centroids(self,img):
-        grayImage = convert_image_to_gray_sale(img)
-        normlizedImage = normlize_gray_image(grayImage)
-        withoutBackgroundImage = self._clean_board_background(normlizedImage)
-        crossesImage = self._get_crosses_points_image(withoutBackgroundImage)
-        centroids_list =  self._get_crosses_points_list(crossesImage)
+    def _get_board_crosses_centroids(self):
+        centroids_list =  self._get_crosses_points_list()
         sorted_centroid_list = sort_list(centroids_list)
         return convert_dounle_tuples_list_to_int(sorted_centroid_list)        
     
-    def _get_board_mask(self,normlizedImg):
+    def _get_board_mask(self):
+        grayImage = convert_image_to_gray_sale(self.get_image())
+        normlizedImg = normlize_gray_image(grayImage)
         mask = np.zeros((normlizedImg.shape),np.uint8)
         #thresh = cv2.adaptiveThreshold(normlizedImg,255,0,1,19,2)
         edges_lines =cv2.Canny(normlizedImg,60,200)
@@ -86,11 +85,14 @@ class SudokoScanner:
 
         return mask
 
-    def _clean_board_background(self,normlizedImage):
-        mask = self._get_board_mask(normlizedImage)
+    def _clean_board_background(self):
+        grayImage = convert_image_to_gray_sale(self.get_image())
+        normlizedImage = normlize_gray_image(grayImage)
+        mask = self._get_board_mask()
         return cv2.bitwise_and(normlizedImage,mask)
     
-    def _get_vertical_lines(self,withoutBackgroundImage):
+    def _get_vertical_lines(self):
+        withoutBackgroundImage = self._clean_board_background()
         kernelx = cv2.getStructuringElement(cv2.MORPH_RECT,(2,10))
 
         dx = cv2.Sobel(withoutBackgroundImage,cv2.CV_16S,1,0)
@@ -109,7 +111,8 @@ class SudokoScanner:
         close = cv2.morphologyEx(close,cv2.MORPH_CLOSE,None,iterations = 2)
         return close.copy()
     
-    def _get_horitontal_lines(self,withoutBackgroundImage):
+    def _get_horitontal_lines(self):
+        withoutBackgroundImage = self._clean_board_background()
         kernely = cv2.getStructuringElement(cv2.MORPH_RECT,(10,2))
         dy = cv2.Sobel(withoutBackgroundImage,cv2.CV_16S,0,1)
         dy = cv2.convertScaleAbs(dy)
@@ -128,13 +131,14 @@ class SudokoScanner:
         close = cv2.morphologyEx(close,cv2.MORPH_DILATE,None,iterations = 2)
         return close.copy()
 
-    def _get_crosses_points_image(self,withoutBackgroundImage):
-        verticalLinesImage = self._get_vertical_lines(withoutBackgroundImage)
-        horizontalLinesImage = self._get_horitontal_lines(withoutBackgroundImage)
+    def _get_crosses_points_image(self):
+        verticalLinesImage = self._get_vertical_lines()
+        horizontalLinesImage = self._get_horitontal_lines()
         crossesImage = cv2.bitwise_and(verticalLinesImage,horizontalLinesImage)
         return crossesImage
     
-    def _get_crosses_points_list(self,crossesPointsImage):
+    def _get_crosses_points_list(self):
+        crossesPointsImage = self._get_crosses_points_image()
         contour,hier = cv2.findContours(crossesPointsImage,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
         centroids = []
         for cnt in contour:
@@ -143,12 +147,14 @@ class SudokoScanner:
             centroids.append((x,y))
         return centroids
     
-    def _get_board_corners(self,img):
-        crosses_centroids = self._get_board_crosses_centroids(img)
+    def _get_board_corners(self):
+        crosses_centroids = self._get_board_crosses_centroids()
         return [crosses_centroids[0][0],crosses_centroids[0][-1],crosses_centroids[-1][-1],crosses_centroids[-1][0]]
 
-    def _crop_board_from_image(self,img):
-        board_corners = self._get_board_corners(img)
-        return crop_image(img,board_corners,5)
+    def _crop_board_from_image(self):
+        if(not self.is_image_cropped):
+            board_corners = self._get_board_corners()
+            self.img =  crop_image(self.get_image(),board_corners,5)
+        return self.get_image()
         
 

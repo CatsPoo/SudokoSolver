@@ -70,3 +70,4 @@ class SudokuSolver:
 
     def Solve(self):
         self.RecursiveSolve(0,0,1)
+        return self.board
