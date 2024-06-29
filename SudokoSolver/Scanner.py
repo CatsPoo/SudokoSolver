@@ -16,9 +16,10 @@ class SudokoScanner:
         
         if(get_File_Formate(boardImagePath) == 'HEIC'):
             self.img = convert_heic_to_jpeg(boardImagePath)
-            self.img = proportional_resize_image(self.img,5)
+            self.img = proportional_resize_image(self.img,0.2)
         else:
             self.img = cv2.imread(boardImagePath)
+            self.img = proportional_resize_image(self.img,2)
         
     def get_image(self):
         return self.img.copy()
@@ -169,7 +170,7 @@ class SudokoScanner:
 
         rows, cols = binary.shape
         for row in range(rows):
-            if np.sum(binary[row,:] == 255) > rows / 8 :  # If most of the row is black
+            if np.sum(binary[row,:] == 255) > rows / 4 :  # If most of the row is black
                 binary[row,:] = 255  # Set the entire row to black
             else:
                 binary[ row,:] = 0

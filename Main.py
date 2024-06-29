@@ -8,9 +8,9 @@ from UserInterface.BoardImageEditor import BoardImageEditor
 
 def main():
     scanner = SudokoScanner('./ExampleBoardsImages/IMG_9723.HEIC')
-    scanner1 = SudokoScanner('./ExampleBoardsImages/newspaper_bord_1.png')
-    #board = scanner.get_board_from_image()
-    board = scanner1.get_board_from_image()
+    scanner1 = SudokoScanner('./ExampleBoardsImages/images.jpeg')
+    board = scanner.get_board_from_image()
+    #board = scanner1.get_board_from_image()
     #board=Boards[0]
     editor = BoardEditor(board)
 
