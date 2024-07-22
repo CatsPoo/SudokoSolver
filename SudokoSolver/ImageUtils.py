@@ -44,7 +44,7 @@ def convert_image_to_gray_sale(img):
 
 def proportional_resize_image(img,scale):
     (h,w) = img.shape[:2]
-    dim = (h//scale,w//scale)
+    dim = (int(h*scale),int(w*scale))
     return cv2.resize(img,dim, interpolation=cv2.INTER_AREA)
 
 def image_to_vector(image_path):

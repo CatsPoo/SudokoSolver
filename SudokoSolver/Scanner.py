@@ -7,24 +7,28 @@ from SudokoSolver.OCR import predict_digits
 class SudokoScanner:
     def __init__(self,boardImagePath) -> None:
         self.img = None
+        self.is_image_cropped = False
 
+
+        if(not isinstance(boardImagePath, str)):
+            self.img = boardImagePath
+            return
+        
         if(get_File_Formate(boardImagePath) == 'HEIC'):
             self.img = convert_heic_to_jpeg(boardImagePath)
+            self.img = proportional_resize_image(self.img,0.2)
         else:
             self.img = cv2.imread(boardImagePath)
-
-        self.img = proportional_resize_image(self.img,5)
+            self.img = proportional_resize_image(self.img,2)
         
     def get_image(self):
-        return self.img
+        return self.img.copy()
 
     def get_board_image(self):
-        return self._crop_board_from_image(self.img.copy())
+        return self._crop_board_from_image()
 
     def get_board_from_image(self) -> List[List[int]]:
-        cropped_board = self._crop_board_from_image(self.img.copy())
-        cells_images_array = self._get_array_of_cells_images(cropped_board)
-        
+        cells_images_array = self._get_array_of_cells_images()
         predicted_numbers = predict_digits(cells_images_array)
 
         return predicted_numbers
@@ -37,9 +41,10 @@ class SudokoScanner:
                 out[-1].append(predict_digits(img))
         return out
 
-    def _get_array_of_cells_images(self,board_image):
+    def _get_array_of_cells_images(self):
+        board_image = self._crop_board_from_image()
         cellsImageList = []
-        centroids_list = self._get_board_crosses_centroids(board_image)
+        centroids_list = self._get_board_crosses_centroids()
 
         for i,l in enumerate(remove_last_row_and_column(centroids_list)):
             cellsImageList.append([])
@@ -56,16 +61,14 @@ class SudokoScanner:
         return cellsImageList
                 
 
-    def _get_board_crosses_centroids(self,img):
-        grayImage = convert_image_to_gray_sale(img)
-        normlizedImage = normlize_gray_image(grayImage)
-        withoutBackgroundImage = self._clean_board_background(normlizedImage)
-        crossesImage = self._get_crosses_points_image(withoutBackgroundImage)
-        centroids_list =  self._get_crosses_points_list(crossesImage)
+    def _get_board_crosses_centroids(self):
+        centroids_list =  self._get_crosses_points_list()
         sorted_centroid_list = sort_list(centroids_list)
         return convert_dounle_tuples_list_to_int(sorted_centroid_list)        
     
-    def _get_board_mask(self,normlizedImg):
+    def _get_board_mask(self):
+        grayImage = convert_image_to_gray_sale(self.get_image())
+        normlizedImg = normlize_gray_image(grayImage)
         mask = np.zeros((normlizedImg.shape),np.uint8)
         #thresh = cv2.adaptiveThreshold(normlizedImg,255,0,1,19,2)
         edges_lines =cv2.Canny(normlizedImg,60,200)
@@ -86,55 +89,101 @@ class SudokoScanner:
 
         return mask
 
-    def _clean_board_background(self,normlizedImage):
-        mask = self._get_board_mask(normlizedImage)
-        return cv2.bitwise_and(normlizedImage,mask)
+    def _clean_board_background(self):
+        grayImage = convert_image_to_gray_sale(self.get_image())
+        normlizedImage = normlize_gray_image(grayImage)
+        mask = self._get_board_mask()
+        clean = cv2.bitwise_and(normlizedImage,mask)
+
+        rows, cols = clean.shape
+        row_count = 0
+        for row in range(rows):
+             if np.sum(clean[row, :] == 0) > rows / 2:
+                 row_count+=1
+        if(row_count < rows/6):
+            for row in range(rows):
+                if np.sum(clean[row, :] == 0) > rows / 2 :  # If most of the row is black
+                    clean[row, :] = 0  # Set the entire row to black
+
+        
+        cols_count = 0
+        for col in range(cols):
+             if np.sum(clean[ :,col] == 0) > cols / 2:
+                 cols_count+=1
+        if(cols_count <cols/6):
+            for col in range(cols):
+                if np.sum(clean[:, col] == 0) > cols / 1.2:  # If most of the column is black
+                    clean[:, col] = 0  # Set the entire column to black
+
+        return clean
     
-    def _get_vertical_lines(self,withoutBackgroundImage):
+    def _get_vertical_lines(self):
+        withoutBackgroundImage = self._clean_board_background()
         kernelx = cv2.getStructuringElement(cv2.MORPH_RECT,(2,10))
 
         dx = cv2.Sobel(withoutBackgroundImage,cv2.CV_16S,1,0)
         dx = cv2.convertScaleAbs(dx)
         cv2.normalize(dx,dx,1,255,cv2.NORM_MINMAX)
-        ret,close = cv2.threshold(dx,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-        close = cv2.morphologyEx(close,cv2.MORPH_DILATE,kernelx,iterations = 1)
+        ret,binary = cv2.threshold(dx,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+        binary = cv2.morphologyEx(binary,cv2.MORPH_DILATE,kernelx,iterations = 1)
 
-        contour, hier = cv2.findContours(close,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
+        contour, hier = cv2.findContours(binary,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
         for cnt in contour:
             x,y,w,h = cv2.boundingRect(cnt)
             if h/w > 5:
-                cv2.drawContours(close,[cnt],0,255,-1)
+                cv2.drawContours(binary,[cnt],0,255,-1)
             else:
-                cv2.drawContours(close,[cnt],0,0,-1)
-        close = cv2.morphologyEx(close,cv2.MORPH_CLOSE,None,iterations = 2)
-        return close.copy()
+                cv2.drawContours(binary,[cnt],0,0,-1)
+        #binary = cv2.morphologyEx(binary,cv2.MORPH_CLOSE,None,iterations = 2)
+
+        kernel = np.ones((15,3))
+        binary = cv2.dilate(binary,kernel,iterations = 1)
+
+        rows, cols = binary.shape
+        for col in range(cols):
+            if np.sum(binary[:,col] == 255) > rows / 4 :  # If most of the row is black
+                binary[:,col] = 255  # Set the entire row to black
+            else:
+                binary[ :,col] = 0
+
+        return binary.copy()
     
-    def _get_horitontal_lines(self,withoutBackgroundImage):
+    def _get_horitontal_lines(self):
+        withoutBackgroundImage = self._clean_board_background()
         kernely = cv2.getStructuringElement(cv2.MORPH_RECT,(10,2))
         dy = cv2.Sobel(withoutBackgroundImage,cv2.CV_16S,0,1)
         dy = cv2.convertScaleAbs(dy)
         cv2.normalize(dy,dy,0,255,cv2.NORM_MINMAX)
-        ret,close = cv2.threshold(dy,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-        close = cv2.morphologyEx(close,cv2.MORPH_DILATE,kernely)
+        ret,binary = cv2.threshold(dy,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+        binary = cv2.morphologyEx(binary,cv2.MORPH_DILATE,kernely)
 
-        contour, hier = cv2.findContours(close,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
+        contour, hier = cv2.findContours(binary,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
         for cnt in contour:
             x,y,w,h = cv2.boundingRect(cnt)
             if w/h > 5:
-                cv2.drawContours(close,[cnt],0,255,-1)
+                cv2.drawContours(binary,[cnt],0,255,-1)
             else:
-                cv2.drawContours(close,[cnt],0,0,-1)
+                cv2.drawContours(binary,[cnt],0,0,-1)
 
-        close = cv2.morphologyEx(close,cv2.MORPH_DILATE,None,iterations = 2)
-        return close.copy()
+        kernel = np.ones((3,15))
+        binary = cv2.dilate(binary,kernel,iterations = 1)
 
-    def _get_crosses_points_image(self,withoutBackgroundImage):
-        verticalLinesImage = self._get_vertical_lines(withoutBackgroundImage)
-        horizontalLinesImage = self._get_horitontal_lines(withoutBackgroundImage)
+        rows, cols = binary.shape
+        for row in range(rows):
+            if np.sum(binary[row,:] == 255) > rows / 4 :  # If most of the row is black
+                binary[row,:] = 255  # Set the entire row to black
+            else:
+                binary[ row,:] = 0
+        return binary.copy()
+
+    def _get_crosses_points_image(self):
+        verticalLinesImage = self._get_vertical_lines()
+        horizontalLinesImage = self._get_horitontal_lines()
         crossesImage = cv2.bitwise_and(verticalLinesImage,horizontalLinesImage)
         return crossesImage
     
-    def _get_crosses_points_list(self,crossesPointsImage):
+    def _get_crosses_points_list(self):
+        crossesPointsImage = self._get_crosses_points_image()
         contour,hier = cv2.findContours(crossesPointsImage,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
         centroids = []
         for cnt in contour:
@@ -143,12 +192,14 @@ class SudokoScanner:
             centroids.append((x,y))
         return centroids
     
-    def _get_board_corners(self,img):
-        crosses_centroids = self._get_board_crosses_centroids(img)
+    def _get_board_corners(self):
+        crosses_centroids = self._get_board_crosses_centroids()
         return [crosses_centroids[0][0],crosses_centroids[0][-1],crosses_centroids[-1][-1],crosses_centroids[-1][0]]
 
-    def _crop_board_from_image(self,img):
-        board_corners = self._get_board_corners(img)
-        return crop_image(img,board_corners,5)
+    def _crop_board_from_image(self):
+        if(not self.is_image_cropped):
+            board_corners = self._get_board_corners()
+            self.img =  crop_image(self.get_image(),board_corners,5)
+        return self.get_image()
         
 
