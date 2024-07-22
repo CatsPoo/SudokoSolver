@@ -8,13 +8,14 @@ from UserInterface.BoardImageEditor import BoardImageEditor
 
 def main():
     scanner = SudokoScanner('./ExampleBoardsImages/IMG_9723.HEIC')
+    scanner1 = SudokoScanner('./ExampleBoardsImages/images.jpeg')
     board = scanner.get_board_from_image()
-    
+    #board = scanner1.get_board_from_image()
     #board=Boards[0]
     editor = BoardEditor(board)
 
-    edited_board = editor.edit_board()
-    # editor.print_board()
+    #edited_board = editor.edit_board()
+    editor.print_board()
     #edited_board = board
 
     slv = SudokuSolver(edited_board)

@@ -16,10 +16,10 @@ class SudokoScanner:
         
         if(get_File_Formate(boardImagePath) == 'HEIC'):
             self.img = convert_heic_to_jpeg(boardImagePath)
+            self.img = proportional_resize_image(self.img,0.2)
         else:
             self.img = cv2.imread(boardImagePath)
-
-        self.img = proportional_resize_image(self.img,5)
+            self.img = proportional_resize_image(self.img,2)
         
     def get_image(self):
         return self.img.copy()
@@ -29,7 +29,6 @@ class SudokoScanner:
 
     def get_board_from_image(self) -> List[List[int]]:
         cells_images_array = self._get_array_of_cells_images()
-        
         predicted_numbers = predict_digits(cells_images_array)
 
         return predicted_numbers
@@ -94,7 +93,29 @@ class SudokoScanner:
         grayImage = convert_image_to_gray_sale(self.get_image())
         normlizedImage = normlize_gray_image(grayImage)
         mask = self._get_board_mask()
-        return cv2.bitwise_and(normlizedImage,mask)
+        clean = cv2.bitwise_and(normlizedImage,mask)
+
+        rows, cols = clean.shape
+        row_count = 0
+        for row in range(rows):
+             if np.sum(clean[row, :] == 0) > rows / 2:
+                 row_count+=1
+        if(row_count < rows/6):
+            for row in range(rows):
+                if np.sum(clean[row, :] == 0) > rows / 2 :  # If most of the row is black
+                    clean[row, :] = 0  # Set the entire row to black
+
+        
+        cols_count = 0
+        for col in range(cols):
+             if np.sum(clean[ :,col] == 0) > cols / 2:
+                 cols_count+=1
+        if(cols_count <cols/6):
+            for col in range(cols):
+                if np.sum(clean[:, col] == 0) > cols / 1.2:  # If most of the column is black
+                    clean[:, col] = 0  # Set the entire column to black
+
+        return clean
     
     def _get_vertical_lines(self):
         withoutBackgroundImage = self._clean_board_background()
@@ -103,18 +124,29 @@ class SudokoScanner:
         dx = cv2.Sobel(withoutBackgroundImage,cv2.CV_16S,1,0)
         dx = cv2.convertScaleAbs(dx)
         cv2.normalize(dx,dx,1,255,cv2.NORM_MINMAX)
-        ret,close = cv2.threshold(dx,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-        close = cv2.morphologyEx(close,cv2.MORPH_DILATE,kernelx,iterations = 1)
+        ret,binary = cv2.threshold(dx,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+        binary = cv2.morphologyEx(binary,cv2.MORPH_DILATE,kernelx,iterations = 1)
 
-        contour, hier = cv2.findContours(close,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
+        contour, hier = cv2.findContours(binary,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
         for cnt in contour:
             x,y,w,h = cv2.boundingRect(cnt)
             if h/w > 5:
-                cv2.drawContours(close,[cnt],0,255,-1)
+                cv2.drawContours(binary,[cnt],0,255,-1)
             else:
-                cv2.drawContours(close,[cnt],0,0,-1)
-        close = cv2.morphologyEx(close,cv2.MORPH_CLOSE,None,iterations = 2)
-        return close.copy()
+                cv2.drawContours(binary,[cnt],0,0,-1)
+        #binary = cv2.morphologyEx(binary,cv2.MORPH_CLOSE,None,iterations = 2)
+
+        kernel = np.ones((15,3))
+        binary = cv2.dilate(binary,kernel,iterations = 1)
+
+        rows, cols = binary.shape
+        for col in range(cols):
+            if np.sum(binary[:,col] == 255) > rows / 4 :  # If most of the row is black
+                binary[:,col] = 255  # Set the entire row to black
+            else:
+                binary[ :,col] = 0
+
+        return binary.copy()
     
     def _get_horitontal_lines(self):
         withoutBackgroundImage = self._clean_board_background()
@@ -122,19 +154,27 @@ class SudokoScanner:
         dy = cv2.Sobel(withoutBackgroundImage,cv2.CV_16S,0,1)
         dy = cv2.convertScaleAbs(dy)
         cv2.normalize(dy,dy,0,255,cv2.NORM_MINMAX)
-        ret,close = cv2.threshold(dy,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-        close = cv2.morphologyEx(close,cv2.MORPH_DILATE,kernely)
+        ret,binary = cv2.threshold(dy,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+        binary = cv2.morphologyEx(binary,cv2.MORPH_DILATE,kernely)
 
-        contour, hier = cv2.findContours(close,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
+        contour, hier = cv2.findContours(binary,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
         for cnt in contour:
             x,y,w,h = cv2.boundingRect(cnt)
             if w/h > 5:
-                cv2.drawContours(close,[cnt],0,255,-1)
+                cv2.drawContours(binary,[cnt],0,255,-1)
             else:
-                cv2.drawContours(close,[cnt],0,0,-1)
+                cv2.drawContours(binary,[cnt],0,0,-1)
 
-        close = cv2.morphologyEx(close,cv2.MORPH_DILATE,None,iterations = 2)
-        return close.copy()
+        kernel = np.ones((3,15))
+        binary = cv2.dilate(binary,kernel,iterations = 1)
+
+        rows, cols = binary.shape
+        for row in range(rows):
+            if np.sum(binary[row,:] == 255) > rows / 4 :  # If most of the row is black
+                binary[row,:] = 255  # Set the entire row to black
+            else:
+                binary[ row,:] = 0
+        return binary.copy()
 
     def _get_crosses_points_image(self):
         verticalLinesImage = self._get_vertical_lines()
